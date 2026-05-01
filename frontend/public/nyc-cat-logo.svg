@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NYC Cat Tracker">
+  <rect width="64" height="64" rx="16" fill="#ede9fe"/>
+  <path fill="#7c3aed" d="M19 28 15 17c-.4-1.2 1-2.2 2-1.5l9 6.2a21 21 0 0 1 12 0l9-6.2c1-.7 2.4.3 2 1.5l-4 11c2 2.6 3 5.7 3 9 0 9.4-7.2 17-16 17s-16-7.6-16-17c0-3.3 1-6.4 3-9Z"/>
+  <circle cx="26" cy="36" r="3" fill="#faf5ff"/>
+  <circle cx="38" cy="36" r="3" fill="#faf5ff"/>
+  <path fill="#faf5ff" d="M32 42c2.3 0 4 1 4 2.3 0 1.4-1.7 3.2-4 3.2s-4-1.8-4-3.2C28 43 29.7 42 32 42Z"/>
+</svg>

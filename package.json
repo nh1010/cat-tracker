@@ -1,0 +1,18 @@
+{
+  "name": "cat-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "infra"
+  ],
+  "scripts": {
+    "frontend:dev": "npm --workspace frontend run dev",
+    "frontend:lint": "npm --workspace frontend run lint",
+    "frontend:build": "npm --workspace frontend run build",
+    "frontend:preview": "npm --workspace frontend run preview",
+    "infra:synth": "npm --workspace infra run synth",
+    "infra:deploy": "npm --workspace infra run deploy",
+    "infra:diff": "npm --workspace infra run diff"
+  }
+}

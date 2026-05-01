@@ -1,0 +1,297 @@
+"use client";
+
+import Map, { Marker, Popup, MapRef, MapLayerMouseEvent, Source, Layer, NavigationControl } from "react-map-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BOROUGHS_GEOJSON_URL, MAPBOX_TOKEN } from "@/lib/config";
+
+export interface MBFeature {
+  id: number;
+  lat: number;
+  lng: number;
+  description: string;
+  created_at: string; // from backend
+}
+
+interface Props {
+  sightings: MBFeature[];
+  onMapClick: (lat: number, lng: number) => void;
+  flyTo?: { lat: number; lng: number } | null;
+  selectedId?: number | null;
+  onPinClick?: (id: number) => void;
+}
+
+const NYC_BOUNDS: [number, number, number, number] = [-74.25909, 40.477399, -73.700272, 40.917577];
+const WORLD_RING: GeoJSON.Position[] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+];
+
+// Default mask: world with NYC bbox as a hole (used until borough shapes load)
+const DEFAULT_MASK_GEOJSON: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          // Outer ring (world-ish bbox) - counterclockwise
+          WORLD_RING,
+          // Inner ring (NYC bounds) - clockwise (hole)
+          [
+            [NYC_BOUNDS[0], NYC_BOUNDS[1]],
+            [NYC_BOUNDS[0], NYC_BOUNDS[3]],
+            [NYC_BOUNDS[2], NYC_BOUNDS[3]],
+            [NYC_BOUNDS[2], NYC_BOUNDS[1]],
+            [NYC_BOUNDS[0], NYC_BOUNDS[1]]
+          ]
+        ]
+      }
+    }
+  ]
+};
+
+function ringArea(ring: GeoJSON.Position[]): number {
+  let area = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    area += x1 * y2 - x2 * y1;
+  }
+  return area / 2;
+}
+
+function asClockwiseHole(ring: GeoJSON.Position[]): GeoJSON.Position[] {
+  const closedRing =
+    ring.length > 0 &&
+    (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
+      ? [...ring, ring[0]]
+      : [...ring];
+
+  return ringArea(closedRing) > 0 ? closedRing.reverse() : closedRing;
+}
+
+function boroughMaskFromGeoJSON(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  const holes: GeoJSON.Position[][] = [];
+
+  fc.features.forEach((feature) => {
+    const geometry = feature.geometry;
+    if (!geometry) return;
+
+    if (geometry.type === "Polygon") {
+      const [outerRing] = geometry.coordinates;
+      if (outerRing) holes.push(asClockwiseHole(outerRing));
+    } else if (geometry.type === "MultiPolygon") {
+      geometry.coordinates.forEach((polygon) => {
+        const [outerRing] = polygon;
+        if (outerRing) holes.push(asClockwiseHole(outerRing));
+      });
+    }
+  });
+
+  if (holes.length === 0) return DEFAULT_MASK_GEOJSON;
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [WORLD_RING, ...holes],
+        },
+      },
+    ],
+  };
+}
+
+export default function MapboxMap({ sightings, onMapClick, flyTo, selectedId, onPinClick }: Props) {
+  const mapRef = useRef<MapRef | null>(null);
+  const [glSupported, setGlSupported] = useState<boolean | null>(null);
+  const [popupId, setPopupId] = useState<number | null>(null);
+  const [maskData, setMaskData] = useState<GeoJSON.FeatureCollection>(DEFAULT_MASK_GEOJSON);
+  const [boroughData, setBoroughData] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [zoom, setZoom] = useState(11);
+
+  const token = MAPBOX_TOKEN;
+
+  // Detect WebGL support and load mapbox-gl on client only
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      type MapboxGLModule = typeof import("mapbox-gl") & {
+        supported?: (options?: { failIfMajorPerformanceCaveat?: boolean }) => boolean;
+      };
+      const m: MapboxGLModule = await import("mapbox-gl");
+      const ok = m.supported ? m.supported({ failIfMajorPerformanceCaveat: false }) : true;
+      if (mounted) setGlSupported(!!ok);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Load NYC borough polygons and build a world-with-holes mask
+  useEffect(() => {
+    fetch(BOROUGHS_GEOJSON_URL)
+      .then((res) => res.json())
+      .then((fc: GeoJSON.FeatureCollection) => {
+        setBoroughData(fc);
+        setMaskData(boroughMaskFromGeoJSON(fc));
+      })
+      .catch(() => {
+        // keep default mask if remote fetch fails
+      });
+  }, []);
+
+  // Scale pins based on zoom level (zoom 8-18)
+  const pinSize = useMemo(() => {
+    const minZoom = 8;
+    const maxZoom = 18;
+    const minSize = 1.5; // rem at min zoom
+    const maxSize = 3.5; // rem at max zoom
+    const normalized = (zoom - minZoom) / (maxZoom - minZoom);
+    return minSize + (normalized * (maxSize - minSize));
+  }, [zoom]);
+
+  const markers = useMemo(() => sightings.map((s) => {
+      const isSelected = selectedId === s.id;
+      return (
+        <Marker key={s.id} longitude={s.lng} latitude={s.lat} anchor="bottom">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onPinClick) {
+                onPinClick(s.id);
+              } else {
+                setPopupId(s.id);
+              }
+            }}
+            className={`hover:scale-110 transition-transform cursor-pointer focus:outline-none ${isSelected ? 'scale-125' : ''}`}
+            aria-label={s.description || "Cat sighting"}
+            style={{ width: `${pinSize * 16}px`, height: `${pinSize * 20}px` }}
+          >
+            <svg
+              viewBox="0 0 24 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="drop-shadow-lg"
+            >
+              {/* Pin shape */}
+              <path
+                d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20c0-6.627-5.373-12-12-12z"
+                fill={isSelected ? "#ec4899" : "#a78bfa"}
+              />
+              <circle cx="12" cy="12" r="10" fill="#faf5ff" />
+              
+              {/* Paw print image */}
+              <image
+                href="/paw.svg"
+                x="3"
+                y="3"
+                width="18"
+                height="18"
+                preserveAspectRatio="xMidYMid meet"
+              />
+            </svg>
+          </button>
+          {popupId === s.id && !onPinClick && (
+            <Popup longitude={s.lng} latitude={s.lat} onClose={() => setPopupId(null)} closeOnClick={false}>
+              <div className="text-sm">
+                <div className="font-semibold mb-1">{s.description}</div>
+                <div className="text-xs text-gray-600">{new Date(s.created_at).toLocaleString()}</div>
+              </div>
+            </Popup>
+          )}
+        </Marker>
+      );
+    }), [sightings, popupId, pinSize, selectedId, onPinClick]);
+
+  // Respond to flyTo prop changes
+  useEffect(() => {
+    if (!flyTo) return;
+    const m = mapRef.current?.getMap();
+    if (!m) return;
+    m.flyTo({ center: [flyTo.lng, flyTo.lat], zoom: Math.max(m.getZoom(), 15), essential: true });
+  }, [flyTo]);
+
+  const handleClick = (e: MapLayerMouseEvent) => {
+    const { lngLat } = e;
+    onMapClick(lngLat.lat, lngLat.lng);
+  };
+
+  const hideMapLabels = () => {
+    const map = mapRef.current?.getMap();
+    const layers = map?.getStyle().layers;
+    if (!map || !layers) return;
+
+    layers.forEach((layer) => {
+      if (layer.type === "symbol") {
+        map.setLayoutProperty(layer.id, "visibility", "none");
+      }
+    });
+  };
+
+  // Fallbacks for missing token or unsupported WebGL
+  if (!token) {
+    return <div className="w-full h-full flex items-center justify-center text-sm text-gray-600">Mapbox token missing. Add VITE_MAPBOX_TOKEN to .env and restart.</div>;
+  }
+  if (glSupported === false) {
+    return <div className="w-full h-full flex items-center justify-center text-sm text-gray-600">WebGL is not available in this browser. Enable hardware acceleration and try again.</div>;
+  }
+  if (glSupported === null) {
+    return <div className="w-full h-full" />; // allow layout while checking
+  }
+
+  type MapLib = Promise<typeof import("mapbox-gl")>;
+
+  return (
+    <Map
+      ref={mapRef}
+      mapboxAccessToken={token}
+      // load the mapbox-gl library lazily to avoid bundler/SSR issues
+      mapLib={import("mapbox-gl") as MapLib}
+      initialViewState={{ longitude: -73.935242, latitude: 40.7128, zoom: 11 }}
+      minZoom={8}
+      maxZoom={18}
+      style={{ width: "100%", height: "100%" }}
+      mapStyle="mapbox://styles/mapbox/dark-v11"
+      // keep users within NYC
+      maxBounds={[[-74.25909, 40.477399], [-73.700272, 40.917577]]}
+      onLoad={() => {
+        hideMapLabels();
+        const m = mapRef.current?.getMap();
+        if (m) {
+          m.fitBounds([[-74.25909, 40.477399], [-73.700272, 40.917577]], { padding: 20, duration: 0 });
+          setZoom(m.getZoom());
+        }
+      }}
+      onStyleData={hideMapLabels}
+      onZoom={(e) => setZoom(e.viewState.zoom)}
+      onClick={handleClick}
+    >
+      {/* Black-out mask outside NYC */}
+      <Source id="nyc-mask" type="geojson" data={maskData}>
+        <Layer id="nyc-mask-fill" type="fill" paint={{ "fill-color": "#000000", "fill-opacity": 0.88 }} />
+      </Source>
+      {/* Borough outlines */}
+      {boroughData && (
+        <Source id="nyc-boroughs" type="geojson" data={boroughData}>
+          <Layer id="nyc-borough-outline" type="line" paint={{ "line-color": "#a855f7", "line-width": 1.5 }} />
+        </Source>
+      )}
+
+      {/* Built-in navigation control (zoom) */}
+      <NavigationControl position="top-right" showCompass={false} />
+
+      {markers}
+    </Map>
+  );
+}
+
+

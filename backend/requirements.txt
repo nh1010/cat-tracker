@@ -1,0 +1,10 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+alembic==1.18.4
+python-dotenv==1.0.1
+pydantic==2.10.3
+python-multipart==0.0.9
+boto3==1.42.97
+pillow==12.2.0
+httpx==0.28.1

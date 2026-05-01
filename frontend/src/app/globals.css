@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Keep a consistent light background across themes to avoid dark bands */
+  --background: #fbf8f4; /* cream-100 */
+  --foreground: #422d6b; /* lilac-900 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Do not switch to dark background; match app design */
+    --background: #fbf8f4;
+    --foreground: #422d6b;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+html, body, #root {
+  min-height: 100vh;
+  background: var(--background);
+}
