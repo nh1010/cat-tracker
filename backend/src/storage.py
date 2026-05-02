@@ -55,7 +55,7 @@ async def _read_limited_upload(file: UploadFile, max_bytes: int, max_mb: int) ->
                 raise HTTPException(status_code=413, detail=f"Upload exceeds {max_mb} MB")
             chunks.append(chunk)
     finally:
-        await file.aclose()
+        await file.close()
     return b"".join(chunks)
 
 
