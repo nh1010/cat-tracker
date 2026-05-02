@@ -29,11 +29,13 @@ npm run frontend:lint
 npm run frontend:build
 ```
 
-Synthesize or deploy the AWS infrastructure:
+Bootstrap, synthesize, or deploy the AWS infrastructure:
 
 ```bash
+export AWS_ACCOUNT_ID=YOUR_AWS_ACCOUNT_ID
+npm run infra:bootstrap
 npm run infra:synth
-npm run infra:deploy -- --parameters HostedZoneId=YOUR_ROUTE53_HOSTED_ZONE_ID
+cdk deploy
 ```
 
 The frontend build uses public `VITE_*` values at build time. Set production values before running `npm run frontend:build` for deployment.

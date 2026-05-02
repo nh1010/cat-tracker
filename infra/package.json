@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
+    "bootstrap": "cdk bootstrap aws://$AWS_ACCOUNT_ID/us-east-1",
     "synth": "cdk synth",
     "deploy": "cdk deploy",
     "diff": "cdk diff"

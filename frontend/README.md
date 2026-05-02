@@ -51,7 +51,7 @@ The `infra/` CDK app deploys the production frontend to `https://cattracker.nyc`
 
 1. Set production `VITE_*` values in this build environment.
 2. Run `npm run frontend:build` from the monorepo root.
-3. Run `npm run infra:deploy -- --parameters HostedZoneId=YOUR_ROUTE53_HOSTED_ZONE_ID`.
+3. Run `cdk deploy` from the monorepo root.
 4. Restrict the Mapbox public token to `cattracker.nyc` in the Mapbox dashboard.
 5. If backend CAPTCHA is enabled, set `VITE_TURNSTILE_SITE_KEY` before building.
 

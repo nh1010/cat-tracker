@@ -11,6 +11,7 @@
     "frontend:lint": "npm --workspace frontend run lint",
     "frontend:build": "npm --workspace frontend run build",
     "frontend:preview": "npm --workspace frontend run preview",
+    "infra:bootstrap": "cdk bootstrap aws://$AWS_ACCOUNT_ID/us-east-1",
     "infra:synth": "npm --workspace infra run synth",
     "infra:deploy": "npm --workspace infra run deploy",
     "infra:diff": "npm --workspace infra run diff"

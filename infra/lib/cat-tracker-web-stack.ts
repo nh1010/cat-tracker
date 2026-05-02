@@ -20,14 +20,8 @@ export class CatTrackerWebStack extends Stack {
     super(scope, id, props);
 
     const wwwDomainName = `www.${props.domainName}`;
-    const hostedZoneId = new cdk.CfnParameter(this, "HostedZoneId", {
-      type: "String",
-      description: `Route 53 hosted zone ID for ${props.domainName}`,
-    });
-
-    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
-      hostedZoneId: hostedZoneId.valueAsString,
-      zoneName: props.domainName,
+    const hostedZone = route53.HostedZone.fromLookup(this, "HostedZone", {
+      domainName: props.domainName,
     });
 
     const certificate = new acm.Certificate(this, "SiteCertificate", {

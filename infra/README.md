@@ -26,12 +26,14 @@ From the monorepo root:
 
 ```bash
 npm install
+export AWS_ACCOUNT_ID=YOUR_AWS_ACCOUNT_ID
+npm run infra:bootstrap
 npm run frontend:build
 npm run infra:synth
-npm run infra:deploy -- --parameters HostedZoneId=YOUR_ROUTE53_HOSTED_ZONE_ID
+cdk deploy
 ```
 
-`HostedZoneId` is required so synth can work without a live Route 53 context lookup.
+The stack looks up the `cattracker.nyc` hosted zone in Route 53 during synth/deploy. It deploys in `us-east-1` because CloudFront requires ACM certificates in that region.
 
 ## Frontend Build-Time Values
 
