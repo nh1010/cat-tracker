@@ -103,7 +103,6 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         settings.upload_rate_limit,
         trust_proxy_headers=settings.trust_proxy_headers,
     )
-    await verify_captcha(request, settings)
     return {"url": await store_upload(file, settings)}
 
 def _parse_date_range(start: Optional[str], end: Optional[str]) -> tuple[datetime, datetime]:
