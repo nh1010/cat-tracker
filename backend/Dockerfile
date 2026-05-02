@@ -40,6 +40,7 @@ COPY src /app/src
 COPY main.py /app/main.py
 COPY alembic.ini /app/alembic.ini
 COPY alembic /app/alembic
+COPY start.sh /app/start.sh
 RUN mkdir -p /app/data /app/uploads
 EXPOSE 5000
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-5000}"]
+CMD ["sh", "start.sh"]
