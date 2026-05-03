@@ -230,8 +230,12 @@ export default function MapboxMap({ sightings, onMapClick, flyTo, selectedId, on
     const layers = map?.getStyle().layers;
     if (!map || !layers) return;
 
+    // Keep road-related symbol layers (street names + route shields).
+    // Hide everything else (place names, boroughs, POIs, water labels, etc.).
+    const ROAD_LABEL = /road|route|shield/i;
+
     layers.forEach((layer) => {
-      if (layer.type === "symbol") {
+      if (layer.type === "symbol" && !ROAD_LABEL.test(layer.id)) {
         map.setLayoutProperty(layer.id, "visibility", "none");
       }
     });

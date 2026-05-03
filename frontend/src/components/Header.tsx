@@ -7,41 +7,46 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 const navItems = [
   { name: "Map", href: "/map" },
   { name: "Sightings", href: "/sightings" },
-  { name: "Reports", href: "/reports" },
 ];
 
 export default function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-cream-50/80 backdrop-blur border-b border-lilac-100">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 border-b border-lilac-200/70 bg-cream-100/95 backdrop-blur">
+      <div className="px-6 sm:px-10 lg:px-16 xl:px-20 2xl:px-24 flex h-16 items-center justify-between">
         {/* Logo + Brand */}
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-lilac-200 grid place-items-center shadow-soft border border-lilac-300 overflow-hidden">
-            <img src="/nyc-cat-logo.svg" alt="NYC Cat Tracker" className="h-6 w-6 object-contain" />
+        <Link to="/" className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-lilac-700 grid place-items-center overflow-hidden flex-shrink-0">
+            <img src="/nyc-cat-logo.svg" alt="NYC Cat Tracker" className="h-5 w-5 object-contain" />
           </div>
-          <span className="text-lg font-semibold tracking-wide text-lilac-800">NYC CAT TRACKER</span>
+          <span className="text-sm sm:text-base font-bold tracking-[0.14em] uppercase text-stone-900 hover-word">
+            NYC Cat Tracker
+          </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6 text-lilac-700 text-sm">
+        <nav className="hidden md:flex items-center gap-7">
           {navItems.map((item) => (
-            <Link key={item.name} to={item.href} className="hover:text-lilac-900 transition">
+            <Link
+              key={item.name}
+              to={item.href}
+              className="text-[11px] font-semibold tracking-[0.18em] uppercase text-stone-500 hover:text-stone-900 transition hover-word"
+            >
               {item.name}
             </Link>
           ))}
           <Link
             to="/map"
-            className="rounded-full bg-lilac-300 text-lilac-900 px-4 py-2 text-sm font-medium shadow-soft hover:bg-lilac-400 transition"
+            className="text-[11px] font-bold tracking-[0.14em] uppercase bg-lilac-700 text-white px-4 py-2 rounded-full hover:bg-lilac-800 transition animated-link"
           >
-            Report a cat
+            Report a cat <span className="link-arrow">↗</span>
           </Link>
         </nav>
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-lilac-800 hover:bg-lilac-100"
+          className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-stone-500 hover:text-stone-900"
           aria-label="Toggle menu"
           onClick={() => setOpen(!open)}
         >
@@ -51,14 +56,14 @@ export default function Header() {
 
       {/* Mobile panel */}
       {open && (
-        <div className="md:hidden border-t border-lilac-100 bg-cream-50/95 backdrop-blur">
-          <div className="mx-auto max-w-7xl px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-lilac-200/70 bg-cream-100/95">
+          <div className="px-8 py-3 space-y-1">
             {navItems.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-base font-medium text-lilac-800 hover:bg-lilac-100"
+                className="block px-2 py-2 text-[11px] tracking-[0.18em] uppercase font-semibold text-stone-500 hover:text-stone-900 hover-word"
               >
                 {item.name}
               </Link>
@@ -66,9 +71,9 @@ export default function Header() {
             <Link
               to="/map"
               onClick={() => setOpen(false)}
-              className="block text-center rounded-full bg-lilac-300 px-4 py-2 text-base font-medium text-lilac-900 shadow-soft hover:bg-lilac-400"
+              className="block mt-2 text-center text-[11px] tracking-[0.14em] uppercase font-bold bg-lilac-700 text-white px-4 py-2 rounded-full hover:bg-lilac-800 animated-link"
             >
-              Report a cat
+              Report a cat <span className="link-arrow">↗</span>
             </Link>
           </div>
         </div>

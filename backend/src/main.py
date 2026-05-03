@@ -5,6 +5,8 @@ import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Optional
 
+import boto3
+from botocore.exceptions import ClientError
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -46,10 +48,46 @@ def health(db: Session = Depends(get_db)):
     db.execute(sql_text("SELECT 1"))
     return {"ok": True}
 
+def _rewrite_image_url(url: Optional[str], base_url: str) -> Optional[str]:
+    """Replace direct S3 URLs with the local proxy URL so private buckets work."""
+    if not url or not settings.s3_bucket:
+        return url
+    if settings.s3_bucket in url and "amazonaws.com" in url:
+        filename = url.rsplit("/", 1)[-1]
+        return f"{base_url.rstrip('/')}/api/images/{filename}"
+    return url
+
+
+def _rewrite_row(row: CatSightingModel, base_url: str) -> CatSightingResponse:
+    resp = CatSightingResponse.model_validate(row)
+    return resp.model_copy(update={"image_url": _rewrite_image_url(resp.image_url, base_url)})
+
+
+@app.get("/api/images/{filename}")
+def proxy_image(filename: str):
+    """Stream an S3 object through the API so private buckets are accessible."""
+    if not settings.s3_bucket:
+        raise HTTPException(status_code=404, detail="Image storage not configured")
+    key = f"{settings.s3_upload_prefix}/{filename}" if settings.s3_upload_prefix else filename
+    client = boto3.client("s3", region_name=settings.aws_region)
+    try:
+        obj = client.get_object(Bucket=settings.s3_bucket, Key=key)
+        content_type = obj.get("ContentType", "image/jpeg")
+        return StreamingResponse(obj["Body"], media_type=content_type, headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+        })
+    except ClientError as exc:
+        code = exc.response["Error"]["Code"]
+        if code in ("NoSuchKey", "404"):
+            raise HTTPException(status_code=404, detail="Image not found")
+        logger.exception("S3 proxy fetch failed")
+        raise HTTPException(status_code=502, detail="Failed to fetch image")
+
+
 @app.get("/api/cats", response_model=list[CatSightingResponse])
-def get_cat_sightings(db: Session = Depends(get_db)):
+def get_cat_sightings(request: Request, db: Session = Depends(get_db)):
     rows = db.query(CatSightingModel).order_by(CatSightingModel.created_at.desc()).all()
-    return rows
+    return [_rewrite_row(r, str(request.base_url)) for r in rows]
 
 @app.post("/api/cats", response_model=CatSightingResponse, status_code=201)
 async def create_cat_sighting(sighting: CatSightingCreate, request: Request, db: Session = Depends(get_db)):
@@ -60,7 +98,7 @@ async def create_cat_sighting(sighting: CatSightingCreate, request: Request, db:
         trust_proxy_headers=settings.trust_proxy_headers,
     )
     await verify_captcha(request, settings)
-    spotted_at = sighting.spotted_at or datetime.now(timezone.utc)
+    spotted_at = sighting.spotted_at or None
 
     row = CatSightingModel(
         lat=sighting.lat,
@@ -78,7 +116,7 @@ async def create_cat_sighting(sighting: CatSightingCreate, request: Request, db:
     return row
 
 @app.get("/api/cats/recent-with-images", response_model=list[CatSightingResponse])
-def get_recent_cats_with_images(db: Session = Depends(get_db)):
+def get_recent_cats_with_images(request: Request, db: Session = Depends(get_db)):
     rows = (
         db.query(CatSightingModel)
         .filter(CatSightingModel.image_url.isnot(None))
@@ -86,14 +124,14 @@ def get_recent_cats_with_images(db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
-    return rows
+    return [_rewrite_row(r, str(request.base_url)) for r in rows]
 
 @app.get("/api/cats/{sighting_id}", response_model=CatSightingResponse)
-def get_cat_sighting(sighting_id: int, db: Session = Depends(get_db)):
+def get_cat_sighting(sighting_id: int, request: Request, db: Session = Depends(get_db)):
     row = db.query(CatSightingModel).filter(CatSightingModel.id == sighting_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Cat sighting not found")
-    return row
+    return _rewrite_row(row, str(request.base_url))
 
 @app.post("/api/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)):
